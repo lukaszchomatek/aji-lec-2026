@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Posty</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <form>
+            <div class="mb-3">
+                <label for="inputTitle" class="form-label">Title</label>
+                <input type="text" class="form-control" id="inputTitle" placeholder="Type post title"/>
+            </div>
+            <input id="buttonSearch" type="button" class="btn btn-primary" value="Szukaj" onclick="filterPosts()"/>
+        </form>
+        <h1>Tabelka z postami</h1>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Tytuł</th>
+        <th>Treść</th>
+        <th>Tagi</th>
+        <th>Polubienia</th>
+        </tr>
+    </thead>
+    <tbody id="postsBody">
+        <tr>
+            <td>Wykład z JS</td>
+            <td>Dzisiaj wykład o interakcji</td>
+            <td>wykład, zajęcia, JS</td>
+            <td>10</td>
+        </tr>
+    </tbody>
+  </table>
+  <p id="rawJSON"></p>
+  <script>
+    "use strict";
+
+    let allPosts = [
+    ];
+
+    let postsToRender = [
+
+    ]
+
+    function filterPosts() {
+        let inputTitle = document.getElementById("inputTitle")
+        let filterText = inputTitle.value
+        postsToRender = allPosts.filter((post) => post.title == filterText)
+        renderPosts(postsToRender)
+
+    }
+
+    function renderPosts(posts) {
+      let tbody = document.getElementById("postsBody")
+      tbody.replaceChildren()
+
+    for (let post of posts) {
+        let newRow = document.createElement("tr")
+        
+        //wersja verbose
+        let newTitle = document.createElement("td")
+        newTitle.className = "fw-bold"
+        newTitle.textContent = post.title
+        newRow.appendChild(newTitle)
+        
+        let newBody = document.createElement("td")
+        newBody.textContent = post.body
+        newRow.appendChild(newBody)
+        
+        let newTags = document.createElement("td")
+        let tagsList = "<ul>"
+        for (let tag of post.tags) {
+            tagsList += "<li>" + tag + "</li>"
+        }
+        tagsList += "</ul>"
+        newTags.innerHTML = tagsList
+        newRow.appendChild(newTags)
+
+        let newLikes = document.createElement("td")
+        newLikes.textContent = post.reactions.likes
+        newRow.appendChild(newLikes)
+
+        tbody.appendChild(newRow)
+    }
+      
+
+    //   let helloDiv = document.getElementById("helloDiv")
+    //   let newP = document.createElement("p")
+    //   newP.textContent = "Hello world"
+    //     helloDiv.appendChild(newP)
+
+    }
+
+    async function fetchPosts() {
+      try {
+        const response = await fetch("https://dummyjson.com/posts");
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        //document.getElementById("rawJSON").textContent = JSON.stringify(data)
+        document.querySelector("#rawJSON").textContent = JSON.stringify(data)
+        console.log("fetch ok")
+        allPosts = data.posts
+        postsToRender = allPosts
+        renderPosts(postsToRender);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    window.addEventListener("load", fetchPosts)
+    //document.getElementById("buttonSearch").addEventListener("click", alert("Hello"))
+    //renderPosts()
+  </script>
+  </div>
+</body>
+</html>
