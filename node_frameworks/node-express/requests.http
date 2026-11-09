@@ -1,0 +1,89 @@
+@base = http://localhost:3000
+
+### Zwykły tekst
+GET {{base}}/
+
+### Wszystkie pierwiastki (JSON)
+GET {{base}}/api/elements
+Accept: application/json
+
+### Filtrowanie: query string (boolean)
+GET {{base}}/api/elements?metal=true
+
+### Jeden zasób
+GET {{base}}/api/elements/8
+
+### HEAD: nagłówki jak przy GET, bez ciała
+HEAD {{base}}/api/elements/8
+
+### OPTIONS: nagłówek Allow
+OPTIONS {{base}}/api/elements/8
+
+### POST: 201 + Location
+POST {{base}}/api/elements
+Content-Type: application/json
+Accept: application/json
+
+{
+  "atomicNumber": 31,
+  "symbol": "Ga",
+  "name": "Gal",
+  "isMetal": true,
+  "discoveredOn": "1875-01-01",
+  "density": 5.91
+}
+
+### PUT: pełna reprezentacja
+PUT {{base}}/api/elements/31
+Content-Type: application/json
+
+{
+  "atomicNumber": 31,
+  "symbol": "Ga",
+  "name": "Gal (zaktualizowany)",
+  "isMetal": true,
+  "discoveredOn": "1875-01-01",
+  "density": 5.91
+}
+
+### PATCH: zmieniane tylko wskazane pola
+PATCH {{base}}/api/elements/31
+Content-Type: application/json
+
+{"name":"Gal","density":5.904}
+
+### DELETE: 204 No Content
+DELETE {{base}}/api/elements/31
+
+### 400 Bad Request (błędny parametr)
+GET {{base}}/api/elements?metal=tak
+
+### 400 Bad Request (niepoprawny JSON)
+POST {{base}}/api/elements
+Content-Type: application/json
+
+{"atomicNumber": }
+
+### 404 Not Found
+GET {{base}}/api/elements/999
+
+### 405 Method Not Allowed + Allow
+DELETE {{base}}/api/elements
+
+### 415 Unsupported Media Type
+POST {{base}}/api/elements
+Content-Type: text/plain
+
+nie jest to JSON
+
+### 422 Unprocessable Content
+POST {{base}}/api/elements
+Content-Type: application/json
+
+{"atomicNumber": 40, "symbol": "Zr", "name": "Cyrkon", "isMetal": "tak", "discoveredOn": "1789-01-01", "density": 6.52}
+
+### 409 Conflict (istniejący identyfikator)
+POST {{base}}/api/elements
+Content-Type: application/json
+
+{"atomicNumber": 8, "symbol": "Ox", "name": "Test", "isMetal": false, "discoveredOn": null, "density": 1.3}
