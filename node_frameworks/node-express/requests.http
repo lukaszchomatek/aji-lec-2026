@@ -87,3 +87,6 @@ POST {{base}}/api/elements
 Content-Type: application/json
 
 {"atomicNumber": 8, "symbol": "Ox", "name": "Test", "isMetal": false, "discoveredOn": null, "density": 1.3}
+
+### counts
+GET {{base}}/api/elements/counts
