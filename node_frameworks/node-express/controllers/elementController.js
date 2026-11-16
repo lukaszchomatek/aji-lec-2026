@@ -1,5 +1,6 @@
-import { elementModel as model } from '../models/elementModel.js';
+import { Element } from '../models/elementModel.js';
 import { validateElement } from '../models/validation.js';
+import { UniqueConstraintError } from 'sequelize';
 
 const allowedCollection = 'GET, HEAD, POST, OPTIONS';
 const allowedItem = 'GET, HEAD, PUT, PATCH, DELETE, OPTIONS';
@@ -15,28 +16,18 @@ function numberFromRequest(req) {
   return Number.isSafeInteger(number) ? number : null;
 }
 
-function item(req) {
+async function item(req) {
   const number = numberFromRequest(req);
 
   if (number === null) {
     return null;
   }
 
-  const index = model.findIndex(number);
-
-  if (index < 0) {
-    return null;
-  }
-
-  return {
-    index,
-    number,
-    element: model.find(number)
-  };
+  return await Element.findByPk(number);
 }
 
 // GET /api/elements
-export function list(req, res) {
+export async function list(req, res) {
   const { metal } = req.query;
 
   if (metal !== undefined && metal !== 'true' && metal !== 'false') {
@@ -45,69 +36,57 @@ export function list(req, res) {
     });
   }
 
-  let data = model.all();
+  const where = metal === undefined
+    ? {}
+    : { isMetal: metal === 'true' };
 
-  if (metal !== undefined) {
-    data = data.filter(element => element.isMetal === (metal === 'true'));
-  }
+  const data = await Element.findAll({ where });
 
   res.status(200).json({
     count: data.length,
-    message: "all content loaded",
+    message: 'all content loaded',
     data
   });
 }
 
 // GET /api/elements/:atomicNumber
-export function get(req, res) {
-  const found = item(req);
+export async function get(req, res) {
+  const element = await item(req);
 
-  if (!found) {
+  if (!element) {
     return res.status(404).json({
       error: 'Nie znaleziono pierwiastka'
     });
   }
 
-  res.status(200).json(found.element);
+  res.status(200).json(element);
 }
 
 // POST /api/elements
-export function create(req, res) {
-  if (!req.is('application/json')) {
-    return res.status(415).json({
-      error: 'Wymagany Content-Type: application/json'
-    });
+export async function create(req, res) {
+  
+  try {
+    const element = await Element.create(req.body);
+
+    res.location(`/api/elements/${element.atomicNumber}`);
+    return res.status(201).json(element);
+
+  } catch (error) {
+    if (error instanceof UniqueConstraintError) {
+      return res.status(409).json({
+        error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
+      });
+    }
+
+    throw error;
   }
-
-  if (req.body === undefined) {
-    return res.status(400).json({
-      error: 'Brak poprawnego ciała JSON'
-    });
-  }
-
-  const validation = validateElement(req.body);
-
-  if (validation) {
-    return res.status(422).json({ error: validation });
-  }
-
-  if (model.conflict(req.body)) {
-    return res.status(409).json({
-      error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
-    });
-  }
-
-  model.insert(req.body);
-
-  res.location(`/api/elements/${req.body.atomicNumber}`);
-  res.status(201).json(req.body);
 }
 
 // PUT /api/elements/:atomicNumber — pełne zastąpienie zasobu
-export function replace(req, res) {
-  const found = item(req);
+export async function replace(req, res) {
+  const element = await item(req);
 
-  if (!found) {
+  if (!element) {
     return res.status(404).json({
       error: 'Nie znaleziono pierwiastka'
     });
@@ -131,27 +110,31 @@ export function replace(req, res) {
     return res.status(422).json({ error: validation });
   }
 
-  if (req.body.atomicNumber !== found.number) {
+  if (req.body.atomicNumber !== element.atomicNumber) {
     return res.status(422).json({
       error: 'Nie można zmienić atomicNumber w adresie zasobu'
     });
   }
 
-  if (model.conflict(req.body, found.number)) {
-    return res.status(409).json({
-      error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
-    });
-  }
+  try {
+    await element.update(req.body);
+    return res.status(200).json(element);
+  } catch (error) {
+    if (error instanceof UniqueConstraintError) {
+      return res.status(409).json({
+        error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
+      });
+    }
 
-  model.replace(found.index, req.body);
-  res.status(200).json(req.body);
+    throw error;
+  }
 }
 
 // PATCH /api/elements/:atomicNumber — częściowa aktualizacja zasobu
-export function update(req, res) {
-  const found = item(req);
+export async function update(req, res) {
+  const element = await item(req);
 
-  if (!found) {
+  if (!element) {
     return res.status(404).json({
       error: 'Nie znaleziono pierwiastka'
     });
@@ -175,39 +158,40 @@ export function update(req, res) {
     return res.status(422).json({ error: validation });
   }
 
-  if ('atomicNumber' in req.body && req.body.atomicNumber !== found.number) {
+  if ('atomicNumber' in req.body &&
+      req.body.atomicNumber !== element.atomicNumber) {
     return res.status(422).json({
       error: 'Nie można zmienić atomicNumber w adresie zasobu'
     });
   }
 
-  const updated = {
-    ...found.element,
-    ...req.body
-  };
+  try {
+    await element.update(req.body);
+    return res.status(200).json(element);
 
-  if (model.conflict(updated, found.number)) {
-    return res.status(409).json({
-      error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
-    });
+  } catch (error) {
+    if (error instanceof UniqueConstraintError) {
+      return res.status(409).json({
+        error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
+      });
+    }
+
+    throw error;
   }
-
-  model.replace(found.index, updated);
-  res.status(200).json(updated);
 }
 
 // DELETE /api/elements/:atomicNumber
-export function remove(req, res) {
-  const found = item(req);
+export async function remove(req, res) {
+  const element = await item(req);
 
-  if (!found) {
+  if (!element) {
     return res.status(404).json({
       error: 'Nie znaleziono pierwiastka'
     });
   }
 
-  model.remove(found.index);
-  res.status(204).end();
+  await element.destroy();
+  return res.status(204).end();
 }
 
 // OPTIONS /api/elements
