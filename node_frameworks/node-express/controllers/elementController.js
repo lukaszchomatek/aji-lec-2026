@@ -1,113 +1,85 @@
-import { elementModel as model } from '../models/elementModel.js';
-import { validateElement } from '../models/validation.js';
+import { Op } from 'sequelize';
+import { Element } from '../models/elementModel.js';
+import { Discoverer } from '../models/discovererModel.js';
 
 const allowedCollection = 'GET, HEAD, POST, OPTIONS';
 const allowedItem = 'GET, HEAD, PUT, PATCH, DELETE, OPTIONS';
 
-function numberFromRequest(req) {
-  const value = req.params.atomicNumber;
+const discoverers = {
+  model: Discoverer,
+  through: { attributes: [] }
+};
 
-  if (!/^\d+$/.test(value)) {
+// Pomocnicze pobieranie pierwiastka
+async function item(req) {
+  const atomicNumber = Number(req.params.atomicNumber);
+
+  if (!Number.isSafeInteger(atomicNumber) || atomicNumber < 1) {
     return null;
   }
 
-  const number = Number(value);
-  return Number.isSafeInteger(number) ? number : null;
-}
-
-function item(req) {
-  const number = numberFromRequest(req);
-
-  if (number === null) {
-    return null;
-  }
-
-  const index = model.findIndex(number);
-
-  if (index < 0) {
-    return null;
-  }
-
-  return {
-    index,
-    number,
-    element: model.find(number)
-  };
+  return Element.findByPk(atomicNumber);
 }
 
 // GET /api/elements
-export function list(req, res) {
+export async function list(req, res) {
   const { metal } = req.query;
 
-  if (metal !== undefined && metal !== 'true' && metal !== 'false') {
+  if (metal !== undefined && !['true', 'false'].includes(metal)) {
     return res.status(400).json({
       error: 'Parametr metal: tylko true lub false'
     });
   }
 
-  let data = model.all();
+  const where = metal === undefined
+    ? {}
+    : { isMetal: metal === 'true' };
 
-  if (metal !== undefined) {
-    data = data.filter(element => element.isMetal === (metal === 'true'));
-  }
+  const data = await Element.findAll({
+    where,
+    include: discoverers
+  });
 
-  res.status(200).json({
+  res.json({
     count: data.length,
-    message: "all content loaded",
+    message: 'all content loaded',
     data
   });
 }
 
 // GET /api/elements/:atomicNumber
-export function get(req, res) {
-  const found = item(req);
+export async function get(req, res) {
+  const element = await item(req);
 
-  if (!found) {
+  if (!element) {
     return res.status(404).json({
       error: 'Nie znaleziono pierwiastka'
     });
   }
 
-  res.status(200).json(found.element);
+  res.json(element);
 }
 
 // POST /api/elements
-export function create(req, res) {
+export async function create(req, res) {
   if (!req.is('application/json')) {
     return res.status(415).json({
       error: 'Wymagany Content-Type: application/json'
     });
   }
 
-  if (req.body === undefined) {
-    return res.status(400).json({
-      error: 'Brak poprawnego ciała JSON'
-    });
-  }
+  const element = await Element.create(req.body);
 
-  const validation = validateElement(req.body);
-
-  if (validation) {
-    return res.status(422).json({ error: validation });
-  }
-
-  if (model.conflict(req.body)) {
-    return res.status(409).json({
-      error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
-    });
-  }
-
-  model.insert(req.body);
-
-  res.location(`/api/elements/${req.body.atomicNumber}`);
-  res.status(201).json(req.body);
+  res.status(201)
+    .location(`/api/elements/${element.atomicNumber}`)
+    .json(element);
 }
 
-// PUT /api/elements/:atomicNumber — pełne zastąpienie zasobu
-export function replace(req, res) {
-  const found = item(req);
+// PUT /api/elements/:atomicNumber
+export async function replace(req, res) {
+  const element = await item(req);
 
-  if (!found) {
+  if (!element) {
     return res.status(404).json({
       error: 'Nie znaleziono pierwiastka'
     });
@@ -119,39 +91,22 @@ export function replace(req, res) {
     });
   }
 
-  if (req.body === undefined) {
-    return res.status(400).json({
-      error: 'Brak poprawnego ciała JSON'
-    });
-  }
-
-  const validation = validateElement(req.body);
-
-  if (validation) {
-    return res.status(422).json({ error: validation });
-  }
-
-  if (req.body.atomicNumber !== found.number) {
+  if (req.body?.atomicNumber !== element.atomicNumber) {
     return res.status(422).json({
-      error: 'Nie można zmienić atomicNumber w adresie zasobu'
+      error: 'atomicNumber musi być zgodny z adresem zasobu'
     });
   }
 
-  if (model.conflict(req.body, found.number)) {
-    return res.status(409).json({
-      error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
-    });
-  }
+  await element.update(req.body);
 
-  model.replace(found.index, req.body);
-  res.status(200).json(req.body);
+  res.json(element);
 }
 
-// PATCH /api/elements/:atomicNumber — częściowa aktualizacja zasobu
-export function update(req, res) {
-  const found = item(req);
+// PATCH /api/elements/:atomicNumber
+export async function update(req, res) {
+  const element = await item(req);
 
-  if (!found) {
+  if (!element) {
     return res.status(404).json({
       error: 'Nie znaleziono pierwiastka'
     });
@@ -163,73 +118,73 @@ export function update(req, res) {
     });
   }
 
-  if (req.body === undefined) {
-    return res.status(400).json({
-      error: 'Brak poprawnego ciała JSON'
-    });
-  }
-
-  const validation = validateElement(req.body, { partial: true });
-
-  if (validation) {
-    return res.status(422).json({ error: validation });
-  }
-
-  if ('atomicNumber' in req.body && req.body.atomicNumber !== found.number) {
+  if (req.body?.atomicNumber !== undefined &&
+      req.body.atomicNumber !== element.atomicNumber) {
     return res.status(422).json({
-      error: 'Nie można zmienić atomicNumber w adresie zasobu'
+      error: 'Nie można zmienić atomicNumber'
     });
   }
 
-  const updated = {
-    ...found.element,
-    ...req.body
-  };
+  await element.update(req.body);
 
-  if (model.conflict(updated, found.number)) {
-    return res.status(409).json({
-      error: 'Pierwiastek o tym numerze lub symbolu już istnieje'
-    });
-  }
-
-  model.replace(found.index, updated);
-  res.status(200).json(updated);
+  res.json(element);
 }
 
 // DELETE /api/elements/:atomicNumber
-export function remove(req, res) {
-  const found = item(req);
+export async function remove(req, res) {
+  const element = await item(req);
 
-  if (!found) {
+  if (!element) {
     return res.status(404).json({
       error: 'Nie znaleziono pierwiastka'
     });
   }
 
-  model.remove(found.index);
+  await element.destroy();
+
   res.status(204).end();
+}
+
+// GET /api/elements/by-discoverer?lastName=Curie
+export async function getByDiscoverer(req, res) {
+  const { lastName } = req.query;
+
+  if (typeof lastName !== 'string' || !lastName.trim()) {
+    return res.status(400).json({
+      error: 'Wymagany parametr query: lastName'
+    });
+  }
+
+  const elements = await Element.findAll({
+    include: {
+      ...discoverers,
+      where: {
+        lastName: {
+          [Op.like]: `%${lastName.trim()}%`
+        }
+      }
+    },
+    order: [['atomicNumber', 'ASC']]
+  });
+
+  res.json(elements);
 }
 
 // OPTIONS /api/elements
 export function collectionOptions(req, res) {
-  res.set('Allow', allowedCollection);
-  res.status(204).end();
+  res.set('Allow', allowedCollection).status(204).end();
 }
 
 // OPTIONS /api/elements/:atomicNumber
 export function itemOptions(req, res) {
-  res.set('Allow', allowedItem);
-  res.status(204).end();
+  res.set('Allow', allowedItem).status(204).end();
 }
 
-// Metoda HTTP niedozwolona dla kolekcji
+// Niedozwolone metody HTTP
 export function collectionMethodNotAllowed(req, res) {
-  res.set('Allow', allowedCollection);
-  res.status(405).end();
+  res.set('Allow', allowedCollection).status(405).end();
 }
 
-// Metoda HTTP niedozwolona dla pojedynczego zasobu
 export function itemMethodNotAllowed(req, res) {
-  res.set('Allow', allowedItem);
-  res.status(405).end();
+  res.set('Allow', allowedItem).status(405).end();
 }

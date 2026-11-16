@@ -13,6 +13,7 @@ export function countRequest(req, res, next) {
 export function logRequest(req, res, next) {
     console.log(req.message)
     console.log(req.host + req.baseUrl + req.originalUrl)
+    next()
 }
 
 export function checkAuthorized(req, res, next) {
