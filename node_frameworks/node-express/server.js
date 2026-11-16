@@ -17,12 +17,10 @@ app.get('/', (req, res) => {
 
 app.use('/api/elements', elementsRouter);
 
-// Nieznane ścieżki
 app.use((req, res) => {
   res.status(404).json({ error: 'Nie znaleziono ścieżki' });
 });
 
-// Centralna obsługa błędów
 app.use((err, req, res, next) => {
   console.error(err);
 
@@ -35,7 +33,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Uruchomienie aplikacji
 const port = Number(process.env.PORT ?? 3000);
 
 try {
