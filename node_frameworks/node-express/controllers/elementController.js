@@ -1,6 +1,7 @@
 import { Element } from '../models/elementModel.js';
 import { validateElement } from '../models/validation.js';
-import { UniqueConstraintError } from 'sequelize';
+import { UniqueConstraintError, Op } from 'sequelize';
+import { Discoverer } from '../models/discovererModel.js';
 
 const allowedCollection = 'GET, HEAD, POST, OPTIONS';
 const allowedItem = 'GET, HEAD, PUT, PATCH, DELETE, OPTIONS';
@@ -40,7 +41,13 @@ export async function list(req, res) {
     ? {}
     : { isMetal: metal === 'true' };
 
-  const data = await Element.findAll({ where });
+  const data = await Element.findAll({ where, 
+    include: {
+    model: Discoverer,
+    through: {
+      attributes: []
+    }
+  } });
 
   res.status(200).json({
     count: data.length,
@@ -192,6 +199,34 @@ export async function remove(req, res) {
 
   await element.destroy();
   return res.status(204).end();
+}
+
+export async function getByDiscoverer(req, res) {
+  const { lastName } = req.query;
+
+  if (typeof lastName !== 'string' || !lastName.trim()) {
+    return res.status(400).json({
+      error: 'Wymagany parametr query: lastName'
+    });
+  }
+
+  const elements = await Element.findAll({
+    include: {
+      model: Discoverer,
+      where: {
+        lastName: {
+          [Op.like]: `%${lastName.trim()}%`
+        }
+      },
+      attributes: ['id', 'firstName', 'lastName'],
+      through: {
+        attributes: []
+      }
+    },
+    order: [['atomicNumber', 'ASC']]
+  });
+
+  return res.status(200).json(elements);
 }
 
 // OPTIONS /api/elements

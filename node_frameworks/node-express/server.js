@@ -2,6 +2,7 @@ import express from 'express';
 import elementsRouter from './routes/elements.js';
 import * as counter from './controllers/requestCounterController.js';
 import { sequelize } from './config/database.js';
+import './models/associations.js';
 
 const app = express();
 

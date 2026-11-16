@@ -13,6 +13,7 @@ router.post('/', elementsController.create);
 router.options('/', elementsController.collectionOptions);
 router.all('/', elementsController.collectionMethodNotAllowed);
 
+router.get('/by-discoverer', elementsController.getByDiscoverer);
 // Pojedynczy pierwiastek
 router.get('/:atomicNumber', elementsController.get);
 

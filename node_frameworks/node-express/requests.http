@@ -55,6 +55,9 @@ Content-Type: application/json
 ### DELETE: 204 No Content
 DELETE {{base}}/api/elements/31
 
+### GET po nazwisku
+GET {{base}}/api/elements/by-discoverer?lastName=Curie
+
 ### 400 Bad Request (błędny parametr)
 GET {{base}}/api/elements?metal=tak
 
