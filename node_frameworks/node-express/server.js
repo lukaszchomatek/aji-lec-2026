@@ -23,13 +23,33 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error(err);
-
   if (res.headersSent) {
     return next(err);
   }
 
-  res.status(500).json({
+  if (err instanceof UniqueConstraintError) {
+    return res.status(409).json({
+      error: 'Naruszenie ograniczenia unikalności',
+      details: err.errors.map(e => ({
+        field: e.path,
+        message: e.message
+      }))
+    });
+  }
+
+  if (err instanceof ValidationError) {
+    return res.status(422).json({
+      error: 'Błąd walidacji',
+      details: err.errors.map(e => ({
+        field: e.path,
+        message: e.message
+      }))
+    });
+  }
+
+  console.error(err);
+
+  return res.status(500).json({
     error: 'Wewnętrzny błąd serwera'
   });
 });

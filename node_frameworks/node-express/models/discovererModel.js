@@ -10,12 +10,30 @@ export const Discoverer = sequelize.define('Discoverer', {
 
   firstName: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    validate: {
+      notEmpty: true,
+      len: [1, 100],
+      notOnlyWhitespace(value) {
+        if (!value.trim()) {
+          throw new Error('Imię nie może składać się z samych spacji');
+        }
+      }
+    }
   },
 
   lastName: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    validate: {
+      notEmpty: true,
+      len: [1, 100],
+      notOnlyWhitespace(value) {
+        if (!value.trim()) {
+          throw new Error('Nazwisko nie może składać się z samych spacji');
+        }
+      }
+    }
   }
 }, {
   tableName: 'discoverers',
