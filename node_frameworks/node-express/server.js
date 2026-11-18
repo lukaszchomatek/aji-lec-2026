@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import elementsRouter from './routes/elements.js';
 import * as counter from './controllers/requestCounterController.js';

@@ -1,0 +1,115 @@
+@authUrl = http://localhost:3001
+@base = http://localhost:3000
+
+### 1. Publiczny endpoint — bez uwierzytelnienia (200)
+GET {{base}}/api/elements
+
+### 2. Publiczny endpoint — pojedynczy pierwiastek (200)
+GET {{base}}/api/elements/1
+
+### 3. Próba modyfikacji bez tokenu (401)
+PATCH {{base}}/api/elements/1
+Content-Type: application/json
+
+{
+  "density": 0.09
+}
+
+### 4. Logowanie — pobranie access i refresh tokenu
+# @name login
+POST {{authUrl}}/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+### 5. Próba modyfikacji z nieprawidłowym tokenem (401)
+PATCH {{base}}/api/elements/1
+Authorization: Bearer nieprawidlowy-token
+Content-Type: application/json
+
+{
+  "density": 0.09
+}
+
+### 6. Modyfikacja z poprawnym tokenem (200)
+PATCH {{base}}/api/elements/1
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "density": 0.09
+}
+
+### 7. Dodanie pierwiastka z poprawnym tokenem (201)
+POST {{base}}/api/elements
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "atomicNumber": 30,
+  "symbol": "Zn",
+  "name": "Cynk",
+  "isMetal": true,
+  "discoveredOn": null,
+  "density": 7.14
+}
+
+### 7.a Usunięcie pierwiastka z poprawnym tokenem
+DELETE {{base}}/api/elements/30
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 8. Odświeżenie access tokenu
+# @name refresh
+POST {{authUrl}}/token
+Content-Type: application/json
+
+{
+  "token": "{{login.response.body.$.refreshToken}}"
+}
+
+### 9. Modyfikacja z odświeżonym tokenem (200)
+PATCH {{base}}/api/elements/1
+Authorization: Bearer {{refresh.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "density": 0.0899
+}
+
+### 10. Wylogowanie
+DELETE {{authUrl}}/logout
+Content-Type: application/json
+
+{
+  "token": "{{login.response.body.$.refreshToken}}"
+}
+
+### 11. Próba odświeżenia tokenu po wylogowaniu (403)
+POST {{authUrl}}/token
+Content-Type: application/json
+
+{
+  "token": "{{login.response.body.$.refreshToken}}"
+}
+
+### 12. Publiczny GET nadal działa po wylogowaniu (200)
+GET {{base}}/api/elements
+
+### 13. Access token po wylogowaniu
+# Przed upływem 50 sekund: 200
+# Po upływie 50 sekund: 401
+POST {{base}}/api/elements
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "atomicNumber": 119,
+  "symbol": "Xx",
+  "name": "Testowy",
+  "isMetal": true,
+  "discoveredOn": null,
+  "density": 5.91
+}

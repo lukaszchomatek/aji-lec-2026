@@ -4,12 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "auth": "node authServer.js",
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "dotenv": "^18.0.10",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3"
   },
   "engines": {
     "node": ">=20"
